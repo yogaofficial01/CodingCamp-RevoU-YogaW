@@ -80,6 +80,33 @@ body {
   letter-spacing: -.01em;
 }
 
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+/* ── Currency toggle button ── */
+.btn-currency {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: .82rem;
+  font-weight: 600;
+  padding: .35rem .9rem;
+  transition: background .2s, color .2s, border-color .2s;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+.btn-currency:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 /* ── Dark / Light toggle button ── */
 .btn-theme {
   background: var(--surface);

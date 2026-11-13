@@ -20,7 +20,10 @@
   ══════════════════════════════════════════ -->
   <div class="top-bar">
     <span class="app-brand">💰 Budget Visualizer</span>
-    <button class="btn-theme" id="themeBtn" aria-label="Toggle colour theme">☀️ Light mode</button>
+    <div class="top-bar-actions">
+      <button class="btn-currency" id="currencyBtn" aria-label="Toggle currency">🇮🇩 IDR</button>
+      <button class="btn-theme" id="themeBtn" aria-label="Toggle colour theme">☀️ Light mode</button>
+    </div>
   </div>
 
   <!-- ══════════════════════════════════════════
@@ -62,7 +65,7 @@
         </div>
 
         <div class="input-group">
-          <label for="amount">Amount ($)</label>
+          <label for="amount" id="amountLabel">Amount ($)</label>
           <input id="amount" type="number" min="0.01" step="0.01" placeholder="0.00" />
           <span class="error-msg" id="amountErr"></span>
         </div>
@@ -165,7 +168,7 @@
     <div class="card">
       <p class="card-title">Spend Limit</p>
       <div class="input-group">
-        <label for="limitInput">Alert me when total exceeds ($)</label>
+        <label for="limitInput" id="limitLabel">Alert me when total exceeds ($)</label>
         <div class="row">
           <input id="limitInput" type="number" min="1" step="1" placeholder="200" />
           <button class="btn-secondary" id="saveLimitBtn" type="button">Save</button>

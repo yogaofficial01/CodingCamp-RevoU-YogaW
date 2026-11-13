@@ -28,6 +28,9 @@ const AUTO_COLORS = [
 
 const DEFAULT_LIMIT = 200;
 
+// USD → IDR exchange rate (approximate)
+const USD_TO_IDR = 15800;
+
 // Month names used throughout
 const MONTH_NAMES = [
   'January','February','March','April','May','June',
@@ -43,6 +46,7 @@ let customCategories = JSON.parse(localStorage.getItem('eb_custom_cats')  || '[]
 let spendLimit       = parseFloat(localStorage.getItem('eb_limit')        || DEFAULT_LIMIT);
 let sortKey          = localStorage.getItem('eb_sort')  || 'newest';
 let theme            = localStorage.getItem('eb_theme') || 'dark';
+let currency         = localStorage.getItem('eb_currency') || 'USD'; // 'USD' or 'IDR'
 
 // Summary view: which month/year is currently shown
 let summaryDate = new Date();   // .getMonth() / .getFullYear()
@@ -97,6 +101,7 @@ function save() {
   localStorage.setItem('eb_limit',        spendLimit);
   localStorage.setItem('eb_sort',         sortKey);
   localStorage.setItem('eb_theme',        theme);
+  localStorage.setItem('eb_currency',     currency);
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -124,6 +129,7 @@ const legendEl       = document.getElementById('legend');
 const pieCanvas      = document.getElementById('pieChart');
 
 const themeBtn       = document.getElementById('themeBtn');
+const currencyBtn    = document.getElementById('currencyBtn');
 
 const limitInput     = document.getElementById('limitInput');
 const saveLimitBtn   = document.getElementById('saveLimitBtn');
@@ -142,6 +148,58 @@ const summaryTotals  = document.getElementById('summaryTotals');
 const summaryChartWrap = document.getElementById('summaryChartWrap');
 const barCanvas      = document.getElementById('barChart');
 const allMonthsEl    = document.getElementById('allMonths');
+
+/* ══════════════════════════════════════════════════════════
+   Currency conversion — USD ↔ IDR
+══════════════════════════════════════════════════════════ */
+
+/** Format an amount (always stored in USD) for display in the active currency */
+function formatAmount(usdAmount) {
+  if (currency === 'IDR') {
+    const idr = usdAmount * USD_TO_IDR;
+    // Use compact Indonesian formatting: Rp 1.580.000
+    return 'Rp ' + Math.round(idr).toLocaleString('id-ID');
+  }
+  return '$' + usdAmount.toFixed(2);
+}
+
+/** Currency symbol / prefix for labels */
+function currencySymbol() {
+  return currency === 'IDR' ? 'Rp' : '$';
+}
+
+function applyCurrency() {
+  const isIDR = currency === 'IDR';
+  currencyBtn.textContent = isIDR ? '🇺🇸 USD' : '🇮🇩 IDR';
+  currencyBtn.setAttribute('aria-label', isIDR ? 'Switch to USD' : 'Switch to IDR');
+
+  // Update form label
+  const amountLabel = document.getElementById('amountLabel');
+  if (amountLabel) amountLabel.textContent = isIDR ? 'Amount (Rp)' : 'Amount ($)';
+
+  // Update limit label
+  const limitLabel = document.getElementById('limitLabel');
+  if (limitLabel) limitLabel.textContent = isIDR
+    ? 'Alert me when total exceeds (Rp)'
+    : 'Alert me when total exceeds ($)';
+
+  // Update limit input placeholder / value shown
+  limitInput.value = isIDR
+    ? Math.round(spendLimit * USD_TO_IDR)
+    : spendLimit;
+}
+
+currencyBtn.addEventListener('click', () => {
+  // If switching away from IDR, convert the limit input back to USD first
+  if (currency === 'IDR') {
+    currency = 'USD';
+  } else {
+    currency = 'IDR';
+  }
+  save();
+  applyCurrency();
+  render();
+});
 
 /* ══════════════════════════════════════════════════════════
    Challenge 5 — Dark / Light mode toggle
@@ -202,12 +260,13 @@ function renderBalance() {
   const total    = transactions.reduce((s, t) => s + t.amount, 0);
   const exceeded = total > spendLimit;
 
-  balanceEl.textContent = `$${total.toFixed(2)}`;
+  balanceEl.textContent = formatAmount(total);
   balanceEl.classList.toggle('over-limit', exceeded);
 
+  const overBy = formatAmount(total - spendLimit);
   limitBadgeEl.textContent = exceeded
-    ? `⚠️ Over limit by $${(total - spendLimit).toFixed(2)}`
-    : `Limit: $${spendLimit.toFixed(2)}`;
+    ? `⚠️ Over limit by ${overBy}`
+    : `Limit: ${formatAmount(spendLimit)}`;
   limitBadgeEl.classList.toggle('exceeded', exceeded);
 
   // Show/hide the full-width banner
@@ -352,9 +411,10 @@ saveLimitBtn.addEventListener('click', () => {
     limitMsg.textContent = 'Enter a positive number.';
     return;
   }
-  spendLimit = val;
+  // Always store spendLimit in USD
+  spendLimit = currency === 'IDR' ? val / USD_TO_IDR : val;
   limitMsg.style.color = 'var(--success)';
-  limitMsg.textContent = `✓ Limit saved as $${val.toFixed(2)}`;
+  limitMsg.textContent = `✓ Limit saved as ${formatAmount(spendLimit)}`;
   setTimeout(() => { limitMsg.textContent = ''; }, 2500);
   save();
   renderBalance();
@@ -457,7 +517,7 @@ function renderList() {
         <div class="tx-name">${escHtml(t.name)}</div>
         <div class="tx-category">${escHtml(t.category)}</div>
       </div>
-      <span class="tx-amount">-$${t.amount.toFixed(2)}</span>
+      <span class="tx-amount">-${formatAmount(t.amount)}</span>
       <button class="btn-delete" aria-label="Delete ${escHtml(t.name)}" data-id="${t.id}">✕</button>
     `;
     txListEl.appendChild(div);
@@ -523,7 +583,7 @@ function renderPieChart() {
             callbacks: {
               label: ctx => {
                 const sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                return ` $${ctx.parsed.toFixed(2)}  (${Math.round(ctx.parsed / sum * 100)}%)`;
+                return ` ${formatAmount(ctx.parsed)}  (${Math.round(ctx.parsed / sum * 100)}%)`;
               },
             },
           },
@@ -536,7 +596,7 @@ function renderPieChart() {
   legendEl.innerHTML = labels.map((l, i) => `
     <div class="legend-item">
       <span class="legend-dot" style="background:${colors[i]}"></span>
-      ${escHtml(l)} &mdash; $${totals[l].toFixed(2)}
+      ${escHtml(l)} &mdash; ${formatAmount(totals[l])}
     </div>`).join('');
 }
 
@@ -592,7 +652,7 @@ function renderSummary() {
                 <div class="summary-bar-fill" style="width:${pct}%; background:${color}"></div>
               </div>
             </div>
-            <span class="summary-row-amount">$${amt.toFixed(2)}</span>
+            <span class="summary-row-amount">${formatAmount(amt)}</span>
           </div>`;
       }).join('');
 
@@ -644,7 +704,7 @@ function renderBarChart(monthTx, year, month) {
           tooltip: {
             callbacks: {
               title: ctx => `Day ${ctx[0].label}`,
-              label: ctx => ` $${ctx.parsed.y.toFixed(2)}`,
+              label: ctx => ` ${formatAmount(ctx.parsed.y)}`,
             },
           },
         },
@@ -657,7 +717,7 @@ function renderBarChart(monthTx, year, month) {
             ticks: {
               color: textMuted,
               font:  { size: 10 },
-              callback: v => `$${v}`,
+              callback: v => formatAmount(v),
             },
             grid: { color: 'rgba(148,163,184,.1)' },
           },
@@ -693,7 +753,7 @@ function renderAllMonths() {
           <div class="month-row-name">${monthLabel(k)}</div>
           <div class="month-row-count">${txs.length} transaction${txs.length !== 1 ? 's' : ''}</div>
         </div>
-        <span class="month-row-total">$${total.toFixed(2)}</span>
+        <span class="month-row-total">${formatAmount(total)}</span>
       </div>`;
   }).join('');
 
@@ -728,6 +788,7 @@ function render() {
 ══════════════════════════════════════════════════════════ */
 
 applyTheme();
+applyCurrency();
 updateSortButtons();
 renderCategoryUI();
 render();
