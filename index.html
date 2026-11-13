@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Expense &amp; Budget Visualizer</title>
+
+  <!-- Chart.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- App stylesheet (only CSS file) -->
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ══════════════════════════════════════════
+       Top bar — theme toggle
+  ══════════════════════════════════════════ -->
+  <div class="top-bar">
+    <span class="app-brand">💰 Budget Visualizer</span>
+    <button class="btn-theme" id="themeBtn" aria-label="Toggle colour theme">☀️ Light mode</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       Balance card
+  ══════════════════════════════════════════ -->
+  <div class="balance-card" id="balanceCard">
+    <p class="balance-label">Total Spent</p>
+    <div class="balance-amount" id="balance">$0.00</div>
+    <div class="limit-badge" id="limitBadge">Limit: $200.00</div>
+    <!-- Over-limit banner (hidden until exceeded) -->
+    <div class="over-limit-banner" id="overLimitBanner" hidden>
+      ⚠️ You have exceeded your spending limit!
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       Tab navigation
+  ══════════════════════════════════════════ -->
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="transactions" role="tab" aria-selected="true">Transactions</button>
+    <button class="tab" data-tab="summary"      role="tab" aria-selected="false">Monthly Summary</button>
+    <button class="tab" data-tab="settings"     role="tab" aria-selected="false">Settings</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB: Transactions
+  ══════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-transactions">
+
+    <!-- Add Expense form -->
+    <div class="card">
+      <p class="card-title">Add Expense</p>
+      <form class="form-grid" id="txForm" novalidate>
+
+        <div class="input-group">
+          <label for="itemName">Item Name</label>
+          <input id="itemName" type="text" placeholder="e.g. Lunch, Uber, Netflix…" autocomplete="off" />
+          <span class="error-msg" id="nameErr"></span>
+        </div>
+
+        <div class="input-group">
+          <label for="amount">Amount ($)</label>
+          <input id="amount" type="number" min="0.01" step="0.01" placeholder="0.00" />
+          <span class="error-msg" id="amountErr"></span>
+        </div>
+
+        <div class="input-group">
+          <label for="category">Category</label>
+          <div class="select-wrapper">
+            <select id="category">
+              <option value="">Select category…</option>
+              <option value="Food">🍔 Food</option>
+              <option value="Transport">🚗 Transport</option>
+              <option value="Fun">🎉 Fun</option>
+            </select>
+          </div>
+          <span class="error-msg" id="catErr"></span>
+        </div>
+
+        <button type="submit" class="btn-add">+ Add Expense</button>
+      </form>
+    </div>
+
+    <!-- Transaction list -->
+    <div class="card">
+      <p class="card-title">Transactions</p>
+
+      <!-- Sort controls -->
+      <div class="sort-bar" role="group" aria-label="Sort transactions">
+        <span>Sort:</span>
+        <button class="sort-btn active" data-sort="newest">Newest</button>
+        <button class="sort-btn" data-sort="oldest">Oldest</button>
+        <button class="sort-btn" data-sort="amount-desc">$ High</button>
+        <button class="sort-btn" data-sort="amount-asc">$ Low</button>
+        <button class="sort-btn" data-sort="category">Category</button>
+      </div>
+
+      <div class="tx-list" id="txList">
+        <div class="empty-state">
+          <div class="icon">💸</div>
+          No transactions yet. Add one above!
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="card">
+      <p class="card-title">Spending by Category</p>
+      <div class="chart-no-data" id="chartEmpty">
+        <div class="icon">📊</div>
+        Add expenses to see the chart.
+      </div>
+      <div class="chart-wrapper" id="chartWrapper" style="display:none;">
+        <canvas id="pieChart"></canvas>
+      </div>
+      <div class="legend" id="legend" style="display:none;"></div>
+    </div>
+
+  </div><!-- /#tab-transactions -->
+
+  <!-- ══════════════════════════════════════════
+       TAB: Monthly Summary
+  ══════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-summary" hidden>
+
+    <div class="card">
+      <p class="card-title">Monthly Summary</p>
+
+      <div class="month-nav">
+        <button class="btn-icon" id="prevMonth" aria-label="Previous month">&#8592;</button>
+        <span class="month-label" id="monthLabel">—</span>
+        <button class="btn-icon" id="nextMonth" aria-label="Next month">&#8594;</button>
+      </div>
+
+      <!-- Month totals -->
+      <div class="summary-totals" id="summaryTotals">
+        <div class="summary-empty">No expenses this month.</div>
+      </div>
+
+      <!-- Bar chart for the selected month -->
+      <div class="summary-chart-wrap" id="summaryChartWrap" style="display:none;">
+        <canvas id="barChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Full month-by-month history -->
+    <div class="card">
+      <p class="card-title">All Months</p>
+      <div id="allMonths">
+        <div class="summary-empty">No data yet.</div>
+      </div>
+    </div>
+
+  </div><!-- /#tab-summary -->
+
+  <!-- ══════════════════════════════════════════
+       TAB: Settings
+  ══════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-settings" hidden>
+
+    <!-- Spend limit -->
+    <div class="card">
+      <p class="card-title">Spend Limit</p>
+      <div class="input-group">
+        <label for="limitInput">Alert me when total exceeds ($)</label>
+        <div class="row">
+          <input id="limitInput" type="number" min="1" step="1" placeholder="200" />
+          <button class="btn-secondary" id="saveLimitBtn" type="button">Save</button>
+        </div>
+        <span class="success-msg" id="limitMsg"></span>
+      </div>
+    </div>
+
+    <!-- Custom categories -->
+    <div class="card">
+      <p class="card-title">Custom Categories</p>
+      <div class="input-group">
+        <label for="customCatInput">New Category Name</label>
+        <div class="row">
+          <input id="customCatInput" type="text" placeholder="e.g. Health, Travel…" autocomplete="off" />
+          <button class="btn-secondary" id="addCatBtn" type="button">Add</button>
+        </div>
+        <span class="error-msg" id="catInputErr"></span>
+      </div>
+      <div class="chip-list" id="chipList"></div>
+    </div>
+
+  </div><!-- /#tab-settings -->
+
+  <footer>Expense &amp; Budget Visualizer &mdash; built with Chart.js</footer>
+
+</div><!-- /.app -->
+
+<!-- App logic (only JS file) -->
+<script src="js/app.js"></script>
+</body>
+</html>
